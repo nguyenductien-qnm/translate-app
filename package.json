@@ -1,0 +1,12 @@
+{
+  "name": "translate-app",
+  "scripts": {
+    "frontend-dev": "npm run dev --workspace=@sff/frontend",
+    "deploy": "npm run deploy --workspace=@sff/infrastructure"
+  },
+  "workspaces": [
+    "apps/*",
+    "infrastructure",
+    "packages/*"
+  ]
+}
