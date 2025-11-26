@@ -12,6 +12,7 @@
     "deploy": "npx cdk deploy --require-approval=never"
   },
   "devDependencies": {
+    "@sff/shared-types": "*",
     "@aws-sdk/client-translate": "^3.940.0",
     "@types/aws-lambda": "^8.10.159",
     "@types/jest": "^29.5.14",

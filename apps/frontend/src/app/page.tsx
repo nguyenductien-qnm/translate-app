@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { ITranslateRequest, ITranslateResponse } from "@sff/shared-types";
 
 const URL = "https://322mas5z70.execute-api.ap-southeast-1.amazonaws.com/prod/";
 
-function translateText({
+async function translateText({
   inputLang,
   outputLang,
   inputText,
@@ -13,23 +14,32 @@ function translateText({
   outputLang: string;
   inputText: string;
 }) {
-  return fetch(URL, {
-    method: "POST",
-    body: JSON.stringify({
+  try {
+    const request: ITranslateRequest = {
       sourceLang: inputLang,
       targetLang: outputLang,
-      text: inputText,
-    }),
-  })
-    .then((result) => result.json())
-    .catch((e) => e.toString());
+      sourceText: inputText,
+    };
+
+    const result = await fetch(URL, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+
+    const returnValue = (await result.json()) as ITranslateResponse;
+    return returnValue;
+  } catch (e: any) {
+    console.error(e);
+    throw e;
+  }
 }
 
 export default function Home() {
   const [inputText, setInputText] = useState<string>("");
-  const [outputText, setOutputText] = useState<any>(null);
   const [inputLang, setInputLang] = useState<string>("");
   const [outputLang, setOutputLang] = useState<string>("");
+  const [outputText, setOutputText] = useState<ITranslateResponse | null>(null);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gray-100">
       <form
@@ -41,7 +51,7 @@ export default function Home() {
             inputLang,
             outputLang,
           });
-          setOutputText(result.TranslatedText);
+          setOutputText(result);
         }}
       >
         <div className="flex flex-col">
@@ -91,7 +101,7 @@ export default function Home() {
           Translate
         </button>
 
-        {outputText && outputText?.trim() != "" && (
+        {outputText && (
           <div className="flex flex-col">
             <label
               htmlFor="outputLang"
@@ -99,11 +109,12 @@ export default function Home() {
             >
               Output Text
             </label>
-            <input
+            <textarea
               readOnly
               id="outputLang"
-              value={outputText}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+              value={JSON.stringify(outputText, null, 2)}
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none w-full"
+              rows={6}
             />
           </div>
         )}
