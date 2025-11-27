@@ -1,11 +1,32 @@
 import * as clientTranslate from "@aws-sdk/client-translate";
 import * as lambda from "aws-lambda";
-import { ITranslateRequest, ITranslateResponse } from "@sff/shared-types";
+import * as dynamodb from "@aws-sdk/client-dynamodb";
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import {
+  ITranslateDBObject,
+  ITranslateRequest,
+  ITranslateResponse,
+} from "@sff/shared-types";
+
+const { TRANSLATION_TABLE_NAME, TRANSLATION_PARTITION_KEY } = process.env;
+
+console.log("{ TRANSLATION_TABLE_NAME, TRANSLATION_PARTITION_KEY }", {
+  TRANSLATION_TABLE_NAME,
+  TRANSLATION_PARTITION_KEY,
+});
+
+if (!TRANSLATION_TABLE_NAME)
+  throw new Error("TRANSLATION_TABLE_NAME is empty.");
+
+if (!TRANSLATION_PARTITION_KEY)
+  throw new Error("TRANSLATION_PARTITION_KEY is empty.");
 
 const translateClient = new clientTranslate.TranslateClient({});
+const dynamodbClient = new dynamodb.DynamoDBClient({});
 
 export const index: lambda.APIGatewayProxyHandler = async (
-  event: lambda.APIGatewayProxyEvent
+  event: lambda.APIGatewayProxyEvent,
+  context: lambda.Context
 ) => {
   try {
     if (!event.body) throw new Error("Body is empty");
@@ -32,6 +53,19 @@ export const index: lambda.APIGatewayProxyHandler = async (
       timestamp: new Date().toString(),
       targetText: result.TranslatedText,
     };
+
+    const tableOjb: ITranslateDBObject = {
+      requestId: context.awsRequestId,
+      ...body,
+      ...responseData,
+    };
+
+    const tableInsertCmd: dynamodb.PutItemCommandInput = {
+      TableName: TRANSLATION_TABLE_NAME,
+      Item: marshall(tableOjb),
+    };
+
+    await dynamodbClient.send(new dynamodb.PutItemCommand(tableInsertCmd));
 
     return {
       statusCode: 200,
