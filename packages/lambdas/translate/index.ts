@@ -1,7 +1,11 @@
-import * as clientTranslate from "@aws-sdk/client-translate";
 import * as lambda from "aws-lambda";
-import * as dynamodb from "@aws-sdk/client-dynamodb";
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import {
+  gateway,
+  getTranslation,
+  exception,
+  TranslationTable,
+} from "/opt/nodejs/utils-lambda-layer";
+
 import {
   ITranslateDBObject,
   ITranslateRequest,
@@ -10,44 +14,36 @@ import {
 
 const { TRANSLATION_TABLE_NAME, TRANSLATION_PARTITION_KEY } = process.env;
 
-console.log("{ TRANSLATION_TABLE_NAME, TRANSLATION_PARTITION_KEY }", {
-  TRANSLATION_TABLE_NAME,
-  TRANSLATION_PARTITION_KEY,
-});
-
 if (!TRANSLATION_TABLE_NAME)
-  throw new Error("TRANSLATION_TABLE_NAME is empty.");
+  throw new exception.MissingParameters("TRANSLATION_TABLE_NAME");
 
 if (!TRANSLATION_PARTITION_KEY)
-  throw new Error("TRANSLATION_PARTITION_KEY is empty.");
+  throw new exception.MissingParameters("TRANSLATION_PARTITION_KEY");
 
-const translateClient = new clientTranslate.TranslateClient({});
-const dynamodbClient = new dynamodb.DynamoDBClient({});
+const translateTable = new TranslationTable({
+  tableName: TRANSLATION_TABLE_NAME,
+  partitionKey: TRANSLATION_PARTITION_KEY,
+});
 
-export const index: lambda.APIGatewayProxyHandler = async (
+export const translate: lambda.APIGatewayProxyHandler = async (
   event: lambda.APIGatewayProxyEvent,
   context: lambda.Context
 ) => {
   try {
-    if (!event.body) throw new Error("Body is empty");
+    if (!event.body) throw new exception.MissingBodyData();
 
     const body = JSON.parse(event.body) as ITranslateRequest;
 
     const { sourceLang, targetLang, sourceText } = body;
 
-    if (!body.sourceLang) throw new Error("sourceLang is missing.");
-    if (!body.targetLang) throw new Error("targetLang is missing.");
-    if (!body.sourceText) throw new Error("sourceText is missing.");
+    if (!sourceLang) throw new exception.MissingParameters("sourceLang");
+    if (!targetLang) throw new exception.MissingParameters("targetLang");
+    if (!sourceText) throw new exception.MissingParameters("sourceText");
 
-    const translateCmd = new clientTranslate.TranslateTextCommand({
-      SourceLanguageCode: sourceLang,
-      TargetLanguageCode: targetLang,
-      Text: sourceText,
-    });
+    const result = await getTranslation(body);
 
-    const result = await translateClient.send(translateCmd);
-
-    if (!result.TranslatedText) throw new Error("Translation is empty.");
+    if (!result.TranslatedText)
+      throw new exception.MissingParameters("TranslatedText");
 
     const responseData: ITranslateResponse = {
       timestamp: new Date().toString(),
@@ -60,33 +56,21 @@ export const index: lambda.APIGatewayProxyHandler = async (
       ...responseData,
     };
 
-    const tableInsertCmd: dynamodb.PutItemCommandInput = {
-      TableName: TRANSLATION_TABLE_NAME,
-      Item: marshall(tableOjb),
-    };
+    await translateTable.insert(tableOjb);
 
-    await dynamodbClient.send(new dynamodb.PutItemCommand(tableInsertCmd));
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(responseData),
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": true,
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Methods": "*",
-      },
-    };
+    return gateway.createSuccessJsonResponse(responseData);
   } catch (e: any) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify(e.toString()),
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": true,
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Methods": "*",
-      },
-    };
+    console.error("error here::::::", e);
+    return gateway.createErrorJsonResponse(e);
+  }
+};
+
+export const getTranslations: lambda.APIGatewayProxyHandler = async () => {
+  try {
+    const rtnData = await translateTable.getAll();
+    return gateway.createSuccessJsonResponse(rtnData);
+  } catch (e: any) {
+    console.error("error here::::::", e);
+    return gateway.createErrorJsonResponse(e);
   }
 };

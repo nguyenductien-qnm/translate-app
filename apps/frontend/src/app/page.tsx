@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { ITranslateRequest, ITranslateResponse } from "@sff/shared-types";
+import { useEffect, useState } from "react";
+import {
+  ITranslateDBObject,
+  ITranslateRequest,
+  ITranslateResponse,
+} from "@sff/shared-types";
 
 const URL = "https://322mas5z70.execute-api.ap-southeast-1.amazonaws.com/prod/";
 
@@ -34,7 +38,21 @@ async function translateText({
   }
 }
 
+async function getTranslations() {
+  try {
+    const result = await fetch(URL, { method: "GET" });
+    const rtnData = (await result.json()) as Array<ITranslateDBObject>;
+    console.log("rtnData:::", rtnData);
+  } catch (e: any) {
+    console.error(e);
+    throw e;
+  }
+}
+
 export default function Home() {
+  useEffect(() => {
+    getTranslations();
+  }, []);
   const [inputText, setInputText] = useState<string>("");
   const [inputLang, setInputLang] = useState<string>("");
   const [outputLang, setOutputLang] = useState<string>("");

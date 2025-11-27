@@ -1,0 +1,19 @@
+@URL = https://322mas5z70.execute-api.ap-southeast-1.amazonaws.com/prod
+
+### Test GET
+GET {{URL}} HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+
+###
+
+### Test POST Translation
+POST {{URL}} HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sourceLang": "en",
+  "targetLang": "vi",
+  "sourceText": "Hello World"
+}

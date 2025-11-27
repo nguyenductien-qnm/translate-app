@@ -15,6 +15,8 @@ export class InfrastructureStack extends cdk.Stack {
     const lambdaDirPath = path.join(projectRoot, "packages/lambdas");
     const translateLambdaPath = path.join(lambdaDirPath, "translate/index.ts");
 
+    const lambdaLayerPath = path.join(projectRoot, "packages/lambda-layers");
+
     const table = new dynamodb.Table(this, "translations", {
       tableName: "translation",
       partitionKey: {
@@ -24,21 +26,44 @@ export class InfrastructureStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    const translateAccessPolicy = new iam.PolicyStatement({
+    const translateServicePolicy = new iam.PolicyStatement({
       actions: ["translate:TranslateText"],
       resources: ["*"],
     });
 
-    const lambdaFunc = new lambdaNodejs.NodejsFunction(
+    const translateTablePolicy = new iam.PolicyStatement({
+      actions: [
+        "dynamodb:PutItem",
+        "dynamodb:Scan",
+        "dynamodb:GetItem",
+        "dynamodb:DeleteItem",
+      ],
+      resources: ["*"],
+    });
+
+    const resAPI = new apigateway.RestApi(this, "TranslatorApi");
+
+    const utilsLambdaLayerPath = path.resolve(
+      path.join(lambdaLayerPath, "utils-lambda-layer")
+    );
+
+    const utilsLambdaLayer = new lambda.LayerVersion(this, "utilsLambdaLayer", {
+      code: lambda.Code.fromAsset(utilsLambdaLayerPath),
+      compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const translateLambda = new lambdaNodejs.NodejsFunction(
       this,
-      "TranslatorLambda",
+      "TranslateLambda",
       {
         entry: translateLambdaPath,
-        handler: "index",
+        handler: "translate",
         runtime: lambda.Runtime.NODEJS_20_X,
-        initialPolicy: [translateAccessPolicy],
+        initialPolicy: [translateServicePolicy, translateTablePolicy],
         depsLockFilePath: path.join(projectRoot, "package-lock.json"), // docker need when deploy
         projectRoot: projectRoot, // docker need when deploy
+        layers: [utilsLambdaLayer],
         environment: {
           TRANSLATION_TABLE_NAME: table.tableName,
           TRANSLATION_PARTITION_KEY: "requestId",
@@ -46,10 +71,32 @@ export class InfrastructureStack extends cdk.Stack {
       }
     );
 
-    const resAPI = new apigateway.RestApi(this, "TranslatorApi");
+    resAPI.root.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(translateLambda)
+    );
 
-    table.grantReadWriteData(lambdaFunc);
+    const getTranslationsLambda = new lambdaNodejs.NodejsFunction(
+      this,
+      "GetTranslationsLambda",
+      {
+        entry: translateLambdaPath,
+        handler: "getTranslations",
+        runtime: lambda.Runtime.NODEJS_20_X,
+        initialPolicy: [translateTablePolicy],
+        depsLockFilePath: path.join(projectRoot, "package-lock.json"), // docker need when deploy
+        projectRoot: projectRoot, // docker need when deploy
+        layers: [utilsLambdaLayer],
+        environment: {
+          TRANSLATION_TABLE_NAME: table.tableName,
+          TRANSLATION_PARTITION_KEY: "requestId",
+        },
+      }
+    );
 
-    resAPI.root.addMethod("POST", new apigateway.LambdaIntegration(lambdaFunc));
+    resAPI.root.addMethod(
+      "GET",
+      new apigateway.LambdaIntegration(getTranslationsLambda)
+    );
   }
 }

@@ -1,0 +1,10 @@
+{
+  "name": "@sff/utils-lambda-layer",
+  "version": "1.0.0",
+  "types": "./nodejs/utils-lambda-layer/index.js",
+  "main": "./nodejs/utils-lambda-layer/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  }
+}
