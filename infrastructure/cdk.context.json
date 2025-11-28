@@ -1,0 +1,14 @@
+{
+  "hosted-zone:account=730335441285:domainName=nguyenductien.click:region=us-east-1": {
+    "Id": "/hostedzone/Z02931362TBP9OCDYIDT9",
+    "Name": "nguyenductien.click."
+  },
+  "hosted-zone:account=730335441285:domainName=nguyenductien.click:region=ap-southeast-1": {
+    "Id": "/hostedzone/Z02931362TBP9OCDYIDT9",
+    "Name": "nguyenductien.click."
+  },
+  "hosted-zone:account=730335441285:domainName=nguyenductien.cloud:region=us-east-1": {
+    "Id": "/hostedzone/Z03836861Y46IS28MSVMI",
+    "Name": "nguyenductien.cloud."
+  }
+}

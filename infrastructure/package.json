@@ -9,11 +9,12 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "npx cdk deploy --require-approval=never"
+    "deploy": "npx cdk deploy --require-approval=never",
+    "destroy": "npx cdk destroy"
   },
   "devDependencies": {
-    "@sff/shared-types": "*",
     "@aws-sdk/client-translate": "^3.940.0",
+    "@sff/shared-types": "*",
     "@types/aws-lambda": "^8.10.159",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.10.1",
@@ -26,6 +27,7 @@
   },
   "dependencies": {
     "aws-cdk-lib": "2.215.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "dotenv": "^17.2.3"
   }
 }
