@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "aws-amplify": "^6.15.8",
+    "lucide-react": "^0.555.0",
     "next": "14.2.1",
     "react": "^18",
     "react-dom": "^18"

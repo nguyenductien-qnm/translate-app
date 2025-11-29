@@ -36,7 +36,7 @@ export class StaticWebsiteDeployment extends Construct {
 
     const bucket = new s3.Bucket(this, "WebsiteBucket", {
       websiteIndexDocument: "index.html",
-      websiteErrorDocument: "404.html",
+      websiteErrorDocument: "index.html",
       publicReadAccess: true,
       blockPublicAccess: {
         blockPublicAcls: false,
@@ -68,6 +68,7 @@ export class StaticWebsiteDeployment extends Construct {
       sources: [s3deploy.Source.asset(frontendDistPath)],
       distribution: distro,
       distributionPaths: ["/*"],
+      memoryLimit: 512,
     });
 
     new route53.ARecord(this, "route53Domain", {

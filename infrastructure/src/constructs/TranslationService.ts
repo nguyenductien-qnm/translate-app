@@ -3,7 +3,6 @@ import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
-import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
 import { RestApiService } from "./RestApiService";
 import {
@@ -36,6 +35,10 @@ export class TranslationService extends Construct {
     const table = new dynamodb.Table(this, "translations", {
       tableName: "translation",
       partitionKey: {
+        name: "username",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
         name: "requestId",
         type: dynamodb.AttributeType.STRING,
       },
@@ -55,6 +58,7 @@ export class TranslationService extends Construct {
         "dynamodb:Scan",
         "dynamodb:GetItem",
         "dynamodb:DeleteItem",
+        "dynamodb:Query",
       ],
       resources: ["*"],
     });
@@ -66,20 +70,28 @@ export class TranslationService extends Construct {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    const environment = {
+      TRANSLATION_TABLE_NAME: table.tableName,
+      TRANSLATION_PARTITION_KEY: "username",
+      TRANSLATION_SORT_KEY: "requestId",
+    };
+
     // the translate lambda
     const translateLambda = createLambdaNodejs(this, "TranslateLambda", {
       lambdaRelPath: "translate/index.ts",
-      handler: "translate",
+      handler: "userTranslate",
       initialPolicy: [translateServicePolicy, translateTablePolicy],
       lambdaLayers: [utilsLambdaLayer],
-      environment: {
-        TRANSLATION_TABLE_NAME: table.tableName,
-        TRANSLATION_PARTITION_KEY: "requestId",
-      },
+      environment,
     });
 
     // adding lambda to restApi
-    restApi.addTranslateMethod({ httpMethod: "POST", lambda: translateLambda });
+    restApi.addTranslateMethod({
+      resource: restApi.userResource,
+      httpMethod: "POST",
+      lambda: translateLambda,
+      isAuth: true,
+    });
 
     // the get translate lambda
     const getTranslationsLambda = createLambdaNodejs(
@@ -87,20 +99,59 @@ export class TranslationService extends Construct {
       "GetTranslationsLambda",
       {
         lambdaRelPath: "translate/index.ts",
-        handler: "getTranslations",
+        handler: "getUserTranslations",
         initialPolicy: [translateTablePolicy],
         lambdaLayers: [utilsLambdaLayer],
-        environment: {
-          TRANSLATION_TABLE_NAME: table.tableName,
-          TRANSLATION_PARTITION_KEY: "requestId",
-        },
+        environment,
       }
     );
 
     // adding the get translate to the restApi
     restApi.addTranslateMethod({
+      resource: restApi.userResource,
       httpMethod: "GET",
       lambda: getTranslationsLambda,
+      isAuth: true,
+    });
+
+    const publicTranslationsLambda = createLambdaNodejs(
+      this,
+      "publicTranslationsLambda",
+      {
+        lambdaRelPath: "translate/index.ts",
+        handler: "publicTranslate",
+        initialPolicy: [translateServicePolicy],
+        lambdaLayers: [utilsLambdaLayer],
+        environment,
+      }
+    );
+
+    // adding the get translate to the restApi
+    restApi.addTranslateMethod({
+      resource: restApi.publicResource,
+      httpMethod: "POST",
+      lambda: publicTranslationsLambda,
+      isAuth: false,
+    });
+
+    const userDeleteTranslationsLambda = createLambdaNodejs(
+      this,
+      "userDeleteTranslationsLambda",
+      {
+        lambdaRelPath: "translate/index.ts",
+        handler: "userDeleteTranslationsLambda",
+        initialPolicy: [translateTablePolicy],
+        lambdaLayers: [utilsLambdaLayer],
+        environment,
+      }
+    );
+
+    // adding the get translate to the restApi
+    restApi.addTranslateMethod({
+      resource: restApi.userResource,
+      httpMethod: "DELETE",
+      lambda: userDeleteTranslationsLambda,
+      isAuth: true,
     });
   }
 }
